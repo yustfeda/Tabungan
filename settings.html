@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengaturan</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+    <script src="js/firebase_config.js"></script>
+</head>
+<body class="settings-page">
+    <nav>
+        <a href="progress.html">Progres</a>
+        <a href="settings.html">Pengaturan</a>
+        <a href="#" id="logout-btn">Keluar</a>
+    </nav>
+    <main class="container">
+        <h2 class="text-center">Ubah Target & Transaksi</h2>
+        <section class="mt-4">
+            <h3 class="text-center">Ubah Target Tabungan</h3>
+            <form id="target-form">
+                <div class="form-group">
+                    <label for="target-input">Target Jumlah (Rp):</label>
+                    <input type="number" id="target-input" placeholder="Cth: 50000000" min="0" required>
+                </div>
+                <button type="submit" class="mt-4">
+                    <i class="fas fa-save"></i> Simpan Target
+                </button>
+            </form>
+        </section>
+        <hr style="margin: 3rem 0; border: 0; border-top: 1px solid #e0e0e0;">
+        <section class="mt-4">
+            <h3 class="text-center">Tambah/Edit Transaksi</h3>
+            <form id="transaction-form">
+                <div class="form-group">
+                    <label for="transaction-description">Deskripsi:</label>
+                    <input type="text" id="transaction-description" required>
+                </div>
+                <div class="form-group">
+                    <label for="transaction-amount">Jumlah (Rp):</label>
+                    <input type="number" id="transaction-amount" placeholder="Cth: 500000" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="transaction-date">Tanggal:</label>
+                    <input type="date" id="transaction-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="transaction-type">Tipe:</label>
+                    <select id="transaction-type">
+                        <option value="deposit">Deposit</option>
+                        <option value="withdrawal">Penarikan/Pengeluaran</option>
+                    </select>
+                </div>
+                <div class="btn-group mt-4">
+                    <button type="submit" id="save-transaction-btn">
+                        <i class="fas fa-plus-circle"></i> Tambah Transaksi
+                    </button>
+                    <button type="button" id="cancel-edit-btn" style="display: none;">
+                        <i class="fas fa-times-circle"></i> Batal Edit
+                    </button>
+                </div>
+            </form>
+        </section>
+        <hr style="margin: 3rem 0; border: 0; border-top: 1px solid #e0e0e0;">
+        <section class="mt-4">
+            <h3 class="text-center">Kelola Transaksi</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Deskripsi</th>
+                            <th>Jumlah</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="edit-transactions-body">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+    <div id="custom-toast" class="toast-notification">
+        <i id="toast-icon"></i>
+        <span id="toast-message"></span>
+    </div>
+    <script src="js/app.js"></script>
+</body>
+</html>
