@@ -11,7 +11,7 @@ const firebaseConfig = {
 };
 
 // Pastikan konfigurasi tidak kosong
-if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes('AIzaSyCGWYUBfXbgAZGcQ7e6V_Hfm_eyclkIaPQ')) {
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes('YOUR_API_KEY')) {
     console.error("Firebase configuration is missing or invalid. Please check js/firebase_config.js");
 } else {
     firebase.initializeApp(firebaseConfig);
