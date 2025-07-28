@@ -7,7 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    let userId = null;
+    let userId = null; // userId akan diisi setelah autentikasi
+    let database = null; // database instance akan diisi setelah autentikasi
 
     // Fungsi untuk menampilkan toast/alert kustom
     const showToast = (message, type = 'info', duration = 3000) => {
@@ -22,10 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         toastMessage.textContent = message;
-        toast.className = 'toast-notification';
+        toast.className = 'toast-notification'; // Reset classes
         toast.classList.add('show', type);
 
-        toastIcon.className = '';
+        toastIcon.className = ''; // Reset ikon
         if (type === 'success') toastIcon.classList.add('fas', 'fa-check-circle');
         else if (type === 'error') toastIcon.classList.add('fas', 'fa-times-circle');
         else toastIcon.classList.add('fas', 'fa-info-circle');
@@ -36,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     // ===================================
-    // AUTENTIKASI
+    // AUTENTIKASI (Penting: Ini yang menginisialisasi userId dan database)
     // ===================================
 
     // Cek status autentikasi setiap kali halaman dimuat
@@ -48,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (user) {
             userId = user.uid;
+            database = firebase.database(); // Inisialisasi database di sini
             console.log("User logged in:", userId);
 
             // Jika user login tapi berada di halaman auth, redirect ke progress
@@ -63,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(logoutBtn) {
                 logoutBtn.addEventListener('click', () => {
                     auth.signOut().then(() => {
-                        window.location.href = 'login.html';
+                        window.location.href = 'login.html'; // Redirect ke login setelah logout
                     }).catch(error => {
                         showToast(`Logout failed: ${error.message}`, 'error');
                     });
@@ -73,13 +75,24 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             console.log("User logged out or not authenticated.");
             userId = null;
+            database = null; // Reset database instance
             
             // Jika user tidak login dan mencoba mengakses halaman yang dilindungi, redirect ke login
             if (protectedPages.includes(currentPath)) {
                 window.location.href = 'login.html';
             }
+            // Jika di halaman login/register, tidak perlu redirect
         }
     });
+
+    // ===================================
+    // UTILITY FUNCTIONS (LANJUTAN)
+    // ===================================
+    const formatCurrency = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
 
     // ===================================
     // LOGIKA KHUSUS HALAMAN
@@ -87,16 +100,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const initializePageSpecificLogic = (uid) => {
         const currentPath = window.location.pathname.split('/').pop();
         
-        if (currentPath === 'register.html') {
-            handleRegisterPage();
-        } else if (currentPath === 'login.html') {
-            handleLoginPage();
-        } else if (currentPath === 'progress.html') {
-            handleProgressPage(uid);
-        } else if (currentPath === 'settings.html') {
-            handleSettingsPage(uid);
+        // Hanya panggil handler jika user ID sudah tersedia
+        if (uid) {
+            if (currentPath === 'progress.html') {
+                handleProgressPage(uid);
+            } else if (currentPath === 'settings.html') {
+                handleSettingsPage(uid);
+            }
         }
-
+        
+        // Navigasi aktif
         const navLinks = document.querySelectorAll('nav a');
         navLinks.forEach(link => {
             if (link.getAttribute('href') === currentPath) {
@@ -118,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             auth.createUserWithEmailAndPassword(email, password)
                 .then((cred) => {
                     showToast('Registrasi berhasil! Anda akan diarahkan ke halaman login.', 'success');
-                    setTimeout(() => window.location.href = 'login.html', 2000);
+                    // Tidak perlu redirect manual, onAuthStateChanged akan menanganinya
                 })
                 .catch(error => {
                     showToast(`Registrasi gagal: ${error.message}`, 'error');
@@ -139,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
             auth.signInWithEmailAndPassword(email, password)
                 .then((cred) => {
                     showToast('Login berhasil! Mengarahkan ke halaman progres...', 'success');
-                    // onAuthStateChanged akan otomatis mengarahkan ke progress.html
+                    // Tidak perlu redirect manual, onAuthStateChanged akan menanganinya
                 })
                 .catch(error => {
                     showToast(`Login gagal: ${error.message}`, 'error');
@@ -150,7 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Progress Page Handler ---
     let lineChartInstance, pieChartInstance;
     const handleProgressPage = (uid) => {
-        // ... (Kode untuk halaman progress yang sudah ada, pastikan menggunakan `uid` untuk database) ...
         const targetAmountEl = document.getElementById('target-amount');
         const totalSavingsEl = document.getElementById('total-savings');
         const progressBar = document.getElementById('progress-bar');
@@ -158,14 +170,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const transactionsTableBody = document.getElementById('transactions-table-body');
         const ctxLineChart = document.getElementById('lineChart')?.getContext('2d');
         const ctxPieChart = document.getElementById('pieChart')?.getContext('2d');
-        const formatCurrency = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
-        const formatDate = (dateString) => {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-        };
+
+        if (!database) { // Pastikan database sudah diinisialisasi
+            console.error("Database not initialized for Progress Page.");
+            showToast("Koneksi database gagal. Coba refresh halaman.", "error");
+            return;
+        }
+
+        database.ref('wedding_savings/' + uid).on('value', (snapshot) => {
+            const data = snapshot.val() || {};
+            const target = data.target || 0;
+            const totalSavings = data.total_tabungan || 0;
+            const transactions = data.transactions || {};
+            
+            targetAmountEl.textContent = formatCurrency(target);
+            totalSavingsEl.textContent = formatCurrency(totalSavings);
+            
+            const percentage = target > 0 ? (totalSavings / target) * 100 : 0;
+            progressBar.style.width = `${Math.min(percentage, 100)}%`;
+            percentageEl.textContent = `${percentage.toFixed(2)}%`;
+
+            const transactionsArray = Object.keys(transactions).map(key => ({
+                id: key,
+                ...transactions[key]
+            })).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            if (ctxLineChart && ctxPieChart) {
+                renderCharts(transactionsArray, target, totalSavings, ctxLineChart, ctxPieChart);
+            }
+            renderTransactionTable(transactionsArray, transactionsTableBody);
+        });
+
         const renderCharts = (transactions, target, totalSavings, lineCtx, pieCtx) => {
             if (lineChartInstance) lineChartInstance.destroy();
             if (pieChartInstance) pieChartInstance.destroy();
+
             const accumulatedData = [];
             const labels = [];
             let currentAccumulated = 0;
@@ -174,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 accumulatedData.push(currentAccumulated);
                 labels.push(formatDate(t.date));
             });
+
             lineChartInstance = new Chart(lineCtx, {
                 type: 'line',
                 data: {
@@ -199,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             });
+
             const remaining = target - totalSavings;
             pieChartInstance = new Chart(pieCtx, {
                 type: 'doughnut',
@@ -216,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         };
+
         const renderTransactionTable = (transactions, tableBody) => {
             tableBody.innerHTML = '';
             transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -231,34 +273,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 tableBody.appendChild(row);
             });
         };
-        database.ref('wedding_savings/' + uid).on('value', (snapshot) => {
-            const data = snapshot.val() || {};
-            const target = data.target || 0;
-            const totalSavings = data.total_tabungan || 0;
-            const transactions = data.transactions || {};
-            
-            targetAmountEl.textContent = formatCurrency(target);
-            totalSavingsEl.textContent = formatCurrency(totalSavings);
-            
-            const percentage = target > 0 ? (totalSavings / target) * 100 : 0;
-            progressBar.style.width = `${Math.min(percentage, 100)}%`;
-            percentageEl.textContent = `${percentage.toFixed(2)}%`;
-
-            const transactionsArray = Object.keys(transactions).map(key => ({
-                id: key,
-                ...transactions[key]
-            })).sort((a, b) => new Date(a.date) - new Date(b.date));
-
-            if (ctxLineChart && ctxPieChart) {
-                renderCharts(transactionsArray, target, totalSavings, ctxLineChart, ctxPieChart);
-            }
-            renderTransactionTable(transactionsArray, transactionsTableBody);
-        });
     };
 
     // --- Settings Page Handler ---
     const handleSettingsPage = (uid) => {
-        // ... (Kode untuk halaman settings yang sudah ada, pastikan menggunakan `uid` untuk database) ...
         const targetForm = document.getElementById('target-form');
         const targetInput = document.getElementById('target-input');
         const transactionForm = document.getElementById('transaction-form');
@@ -272,16 +290,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const cancelEditBtn = document.getElementById('cancel-edit-btn');
         let editingTransactionId = null;
 
-        const formatCurrency = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
-        const formatDate = (dateString) => {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-        };
-        
-        if (!database) {
-            showToast("Koneksi database gagal. Mohon periksa konfigurasi Firebase.", "error");
+        if (!database) { // Pastikan database sudah diinisialisasi
+            console.error("Database not initialized for Settings Page.");
+            showToast("Koneksi database gagal. Coba refresh halaman.", "error");
             return;
         }
+
+        // Tampilkan data target
         database.ref('wedding_savings/' + uid + '/target').once('value').then(snapshot => {
             if (snapshot.exists()) {
                 targetInput.value = snapshot.val();
@@ -289,6 +304,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }).catch(error => {
             showToast("Gagal memuat target: " + error.message, "error");
         });
+
+        // Event listener untuk form target
         targetForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const newTarget = parseFloat(targetInput.value);
@@ -300,6 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast('Masukkan angka target yang valid.', 'error');
             }
         });
+
+        // Event listener untuk form transaksi
         transactionForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const amount = parseFloat(amountInput.value);
@@ -311,22 +330,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast('Harap isi semua kolom dengan benar.', 'error');
                 return;
             }
+            
             const transactionAmount = type === 'withdrawal' ? -amount : amount;
+
             if (editingTransactionId) {
+                // Mode edit
                 database.ref('wedding_savings/' + uid + '/transactions/' + editingTransactionId).once('value').then(snapshot => {
                     const oldTransaction = snapshot.val();
                     const oldAmount = oldTransaction.amount;
                     const amountChange = transactionAmount - oldAmount;
+
                     const updates = {};
                     updates['/wedding_savings/' + uid + '/transactions/' + editingTransactionId] = {
                         amount: transactionAmount, description: description, date: date, type: type
                     };
                     updates['/wedding_savings/' + uid + '/total_tabungan'] = firebase.database.ServerValue.increment(amountChange);
+
                     database.ref().update(updates)
                         .then(() => { showToast('Transaksi berhasil diperbarui!', 'success'); resetTransactionForm(); })
                         .catch(error => showToast('Gagal memperbarui transaksi: ' + error.message, 'error'));
                 }).catch(error => showToast('Gagal mengambil data transaksi lama: ' + error.message, 'error'));
             } else {
+                // Mode tambah baru
                 const newTransactionRef = database.ref('wedding_savings/' + uid + '/transactions').push();
                 newTransactionRef.set({
                     amount: transactionAmount, description: description, date: date, type: type
@@ -339,19 +364,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 }).catch(error => showToast('Gagal menambahkan transaksi: ' + error.message, 'error'));
             }
         });
+        
         const resetTransactionForm = () => {
             transactionForm.reset();
             editingTransactionId = null;
             saveTransactionBtn.textContent = 'Tambah Transaksi';
             cancelEditBtn.style.display = 'none';
         };
+
         cancelEditBtn.addEventListener('click', resetTransactionForm);
+
         database.ref('wedding_savings/' + uid + '/transactions').on('value', (snapshot) => {
             const transactions = snapshot.val();
             transactionsTableBody.innerHTML = '';
             if (transactions) {
                 const transactionsArray = Object.keys(transactions).map(key => ({ id: key, ...transactions[key] }));
                 transactionsArray.sort((a, b) => new Date(b.date) - new Date(a.date));
+
                 transactionsArray.forEach(trans => {
                     const row = document.createElement('tr');
                     const amountClass = trans.type === 'deposit' ? 'deposit' : 'withdrawal';
@@ -369,6 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                     transactionsTableBody.appendChild(row);
                 });
+
                 document.querySelectorAll('.edit-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const transactionId = e.target.dataset.id || e.target.closest('button').dataset.id;
@@ -387,6 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }).catch(error => showToast('Gagal mengambil data untuk edit: ' + error.message, 'error'));
                     });
                 });
+                
                 document.querySelectorAll('.delete-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const transactionId = e.target.dataset.id || e.target.closest('button').dataset.id;
@@ -394,6 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             database.ref('wedding_savings/' + uid + '/transactions/' + transactionId).once('value').then(snapshot => {
                                 const transactionData = snapshot.val();
                                 const amount = transactionData.amount;
+                                
                                 database.ref('wedding_savings/' + uid + '/transactions/' + transactionId).remove()
                                     .then(() => {
                                         database.ref('wedding_savings/' + uid + '/total_tabungan').transaction(currentTotal => {
@@ -412,6 +444,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Panggil handler halaman yang sesuai saat DOM dimuat
+    // Ini dipindahkan ke dalam onAuthStateChanged untuk memastikan userId tersedia
+    // Namun, untuk halaman login/register, kita panggil langsung
     const currentPath = window.location.pathname.split('/').pop();
     if (currentPath === 'register.html') handleRegisterPage();
     if (currentPath === 'login.html') handleLoginPage();
